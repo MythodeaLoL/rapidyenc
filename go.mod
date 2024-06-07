@@ -1,4 +1,4 @@
-module github.com/mnightingale/rapidyenc
+module "github.com/MythodeaLoL/rapidyenc"
 
 go 1.21
 
