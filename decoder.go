@@ -11,17 +11,19 @@ package rapidyenc
 import "C"
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"golang.org/x/text/transform"
 	"hash"
 	"hash/crc32"
 	"io"
 	"strconv"
 	"sync"
 	"unsafe"
+
+	"golang.org/x/text/transform"
 )
 
 var (
@@ -126,7 +128,21 @@ func (d *Decoder) Read(p []byte) (int, error) {
 			n = copy(p, d.dst[d.dst0:d.dst1])
 			d.dst0 += n
 			if d.dst0 == d.dst1 && d.transformComplete {
-				return n, d.err
+				// Decompress the data using gzip
+				var decompressed bytes.Buffer
+				gzipReader, err := gzip.NewReader(bytes.NewReader(d.dst[:d.dst1]))
+				if err != nil {
+					return 0, err
+				}
+				_, err = io.Copy(&decompressed, gzipReader)
+				if err != nil {
+					return 0, err
+				}
+				gzipReader.Close()
+
+				decompressedData := decompressed.Bytes()
+				copy(p, decompressedData)
+				return len(decompressedData), d.err
 			}
 			return n, nil
 		} else if d.transformComplete {

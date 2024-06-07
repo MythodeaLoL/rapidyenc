@@ -10,6 +10,8 @@ package rapidyenc
 */
 import "C"
 import (
+	"bytes"
+	"compress/gzip"
 	"sync"
 	"unsafe"
 )
@@ -35,12 +37,22 @@ func (e *Encoder) Encode(src []byte) []byte {
 		C.rapidyenc_encode_init()
 	})
 
-	dst := make([]byte, MaxLength(len(src), e.LineLength))
+	// Compress the source data using gzip
+	var compressed bytes.Buffer
+	gzipWriter := gzip.NewWriter(&compressed)
+	_, err := gzipWriter.Write(src)
+	if err != nil {
+		panic(err)
+	}
+	gzipWriter.Close()
+
+	compressedData := compressed.Bytes()
+	dst := make([]byte, MaxLength(len(compressedData), e.LineLength))
 
 	length := C.rapidyenc_encode(
-		unsafe.Pointer(&src[0]),
+		unsafe.Pointer(&compressedData[0]),
 		unsafe.Pointer(&dst[0]),
-		C.size_t(len(src)),
+		C.size_t(len(compressedData)),
 	)
 
 	return dst[:length]
